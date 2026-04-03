@@ -649,10 +649,10 @@
   padding: 18px;
   text-align: center;
   box-shadow: 0 1px 6px rgba(0,0,0,.06);
+}
 
-  canvas {
-    max-width: stretch;
-  }
+.llmo-dashboard .dial-card canvas {
+  max-width: 100%;
 }
 
 .llmo-dashboard .dial-kpi {
@@ -769,25 +769,21 @@
 
 .llmo-dashboard .panel {
   position: fixed;
-  left: -110%;
-  top: 0;
-  bottom: 0;
-  width: 780px;
+  inset: 0;
+  width: 100%;
+  height: 100%;
   background: var(--card);
-  border-right: 1px solid var(--border);
   z-index: 500;
   display: flex;
   flex-direction: column;
-  transition: left .3s cubic-bezier(.4,0,.2,1);
-  box-shadow: 10px 0 40px rgba(0,0,0,.15);
-}
-
-.llmo-dashboard .panel.wide {
-  width: 860px;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity .2s ease;
 }
 
 .llmo-dashboard .panel.open {
-  left: 0;
+  opacity: 1;
+  pointer-events: all;
 }
 
 .llmo-dashboard .panel-hdr {
@@ -1827,5 +1823,4 @@
   .llmo-dashboard .catchup-grid { grid-template-columns: repeat(2, 1fr); }
   .llmo-dashboard .banner { flex-direction: column; }
   .llmo-dashboard .tam-row { justify-content: flex-start; }
-  .llmo-dashboard .panel { width: 100%; }
 }

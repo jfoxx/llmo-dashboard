@@ -27,12 +27,12 @@ export default async function decorate(block) {
     const resp = await fetch('/config.json');
     if (resp.ok) {
       const cfg = await resp.json();
-      const entry = (cfg.data || []).find((r) => r.key === 'anthropic-api-key');
-      if (entry?.value) window.LLMO_API_KEY = entry.value;
       const dateEntry = (cfg.data || []).find((r) => r.key === 'countdown-date');
       if (dateEntry?.value) window.LLMO_COUNTDOWN_DATE = dateEntry.value;
-      const paEntry = (cfg.data || []).find((r) => r.key === 'power-automate-aem-url');
-      if (paEntry?.value) window.LLMO_PA_URL = paEntry.value;
+      const paUpdateEntry = (cfg.data || []).find((r) => r.key === 'power-automate-aem-update-url');
+      if (paUpdateEntry?.value) window.LLMO_PA_UPDATE_URL = paUpdateEntry.value;
+      const paAddEntry = (cfg.data || []).find((r) => r.key === 'power-automate-aem-add-url');
+      if (paAddEntry?.value) window.LLMO_PA_ADD_URL = paAddEntry.value;
     }
   } catch (e) {
     // config fetch failed — fall back to localStorage / manual entry
@@ -47,6 +47,7 @@ export default async function decorate(block) {
     window.LLMO_SHEET_AEM = json['aem-customers']?.data || [];
     window.LLMO_SHEET_MEETINGS = json['meetings']?.data || [];
     window.LLMO_SHEET_COMPETITIVE = json['competitive']?.data || [];
+    window.LLMO_SHEET_AD = json['ad']?.data || [];
   } catch (e) {
     block.innerHTML = `<div style="padding:40px;text-align:center;font-family:sans-serif;color:#E8200E">
       <strong>Failed to load dashboard data</strong><br><br>
@@ -72,18 +73,6 @@ export default async function decorate(block) {
   </div>
 </div>
 
-
-<!-- API KEY MODAL -->
-<div class="modal-overlay" id="apiModal">
-  <div class="modal-box">
-    <div class="modal-logo"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 501.71 444.05" fill="white"><polygon points="297.58 444.05 261.13 342.65 169.67 342.65 246.54 149.12 363.19 444.05 501.71 444.05 316.8 0 186.23 0 0 444.05 297.58 444.05 297.58 444.05"/></svg></div>
-    <div class="modal-title">Welcome to the LLMO Dashboard</div>
-    <div class="modal-desc">Enter your Anthropic API key to enable AI-powered weekly updates. Stored locally in your browser only.</div>
-    <input class="modal-input" id="apiKeyInput" type="password" placeholder="sk-ant-api03-...">
-    <button class="modal-btn" onclick="saveKey()">Save & Launch Dashboard →</button>
-    <div class="modal-note">Key stored in your browser only · Used only to call Anthropic's API</div>
-  </div>
-</div>
 
 <!-- OVERLAY -->
 <div class="overlay" id="overlay" onclick="closeAllPanels()"></div>
@@ -112,7 +101,7 @@ export default async function decorate(block) {
 </div>
 
 <!-- AEM CUSTOMERS PANEL -->
-<div class="panel" id="pAEM" style="width:900px">
+<div class="panel" id="pAEM">
   <div class="panel-hdr">
     <div class="panel-title">🏛 Existing AEM Customers</div>
     <button class="panel-close" onclick="closeAllPanels()">✕</button>
@@ -138,6 +127,7 @@ export default async function decorate(block) {
     <div class="p-tbl-wrap">
       <table class="p-tbl">
         <thead><tr>
+          <th></th>
           <th onclick="sortTbl('aem','name')" style="min-width:180px">Account ↕</th>
           <th onclick="sortTbl('aem','region')">Region ↕</th>
           <th onclick="sortTbl('aem','ad')">AD ↕</th>
@@ -157,7 +147,7 @@ export default async function decorate(block) {
 </div>
 
 <!-- MEETING TRACKER PANEL -->
-<div class="panel" id="pMeetings" style="width:900px">
+<div class="panel" id="pMeetings">
   <div class="panel-hdr">
     <div class="panel-title">📋 Meeting Tracker</div>
     <div style="display:flex;align-items:center;gap:8px">
@@ -239,63 +229,21 @@ export default async function decorate(block) {
   </div>
 </div>
 
-<!-- AI UPDATE PANEL -->
-<div class="ai-panel" id="aiPanel">
-  <div class="ai-phdr">
-    <div class="ai-ptitle">⚡ <span>AI</span> Weekly Update</div>
-    <button class="ai-close" onclick="toggleAI()">✕</button>
-  </div>
-  <div class="ai-body">
-    <div>
-      <div class="ai-lbl">Reporting Week</div>
-      <select class="ai-wksel" id="aiWkSel"></select>
-    </div>
-    <div>
-      <div class="ai-lbl">Describe This Week's Numbers</div>
-      <textarea class="ai-ta" id="aiInput" placeholder="e.g. Week 8: BDR reached 58 accounts, Carahsoft did 8, ADs did 14. We had 15 meetings — BDR got 4, ADs 11. Pipeline is $1.1M. Partners sourced 2 meetings."></textarea>
-    </div>
-    <div class="ai-hint">💡 Just type naturally — Claude extracts all numbers and updates the full dashboard automatically.</div>
-    <div class="ai-status" id="aiStatus"></div>
-    <button class="ai-btn" id="aiBtn" onclick="runAI()">Parse &amp; Update Dashboard →</button>
-    <div style="text-align:center"><button class="manual-toggle" onclick="document.getElementById('manualSec').classList.toggle('on')">Or enter numbers manually</button></div>
-    <div class="manual-section" id="manualSec">
-      <div class="ai-lbl" style="margin-bottom:9px">Manual Entry</div>
-      <div class="manual-grid">
-        <div class="m-field"><label>KPI1 Total</label><input type="number" id="m1a" placeholder="65"></div>
-        <div class="m-field"><label>KPI1 BDR</label><input type="number" id="m1b" placeholder="45"></div>
-        <div class="m-field"><label>KPI1 Carahsoft</label><input type="number" id="m1c" placeholder="10"></div>
-        <div class="m-field"><label>KPI1 ADs</label><input type="number" id="m1d" placeholder="10"></div>
-        <div class="m-field"><label>KPI2 Total</label><input type="number" id="m2a" placeholder="18"></div>
-        <div class="m-field"><label>KPI2 BDR</label><input type="number" id="m2b" placeholder="4"></div>
-        <div class="m-field"><label>KPI2 Carahsoft</label><input type="number" id="m2c" placeholder="0"></div>
-        <div class="m-field"><label>KPI2 ADs</label><input type="number" id="m2d" placeholder="14"></div>
-        <div class="m-field"><label>KPI3 Pipeline $</label><input type="number" id="m3a" placeholder="585000"></div>
-        <div class="m-field"><label>KPI4 Partner Mtgs</label><input type="number" id="m4a" placeholder="3"></div>
-      </div>
-      <button class="ai-btn" style="margin-top:12px" onclick="applyManual()">Apply Manual Update →</button>
-    </div>
-  </div>
-</div>
-
 <!-- HEADER -->
 <header class="hdr">
   <div class="hdr-left">
     <div class="logo"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 501.71 444.05" fill="white"><polygon points="297.58 444.05 261.13 342.65 169.67 342.65 246.54 149.12 363.19 444.05 501.71 444.05 316.8 0 186.23 0 0 444.05 297.58 444.05 297.58 444.05"/></svg></div>
-    <div><div class="hdr-title">Adobe LLM Optimizer · SLG Strategic Initiative</div><div class="hdr-sub">Executive Sponsor: Phil Jackson · All 50 US States</div></div>
+    <div><div class="hdr-title">Adobe LLM Optimizer · SLG Strategic Initiative <span class="live" style="vertical-align:middle;margin-left:8px">Live Tracker</span></div><div class="hdr-sub">Executive Sponsor: Phil Jackson · All 50 US States</div></div>
   </div>
   <div class="hdr-right">
-    <button class="pill" onclick="openPanel('Targets')" style="color:var(--blue);border-color:rgba(59,130,246,.3)">🎯 Target Customers</button>
-    <button class="pill" onclick="openPanel('AEM')" style="color:var(--amber);border-color:rgba(245,158,11,.3)">🏛 AEM Customers</button>
-    <button class="pill" onclick="openPanel('Meetings')" style="color:var(--purple);border-color:rgba(168,85,247,.3)">🤝 Partner Sourced / Sales Activity</button>
-    <button class="pill" onclick="openPanel('BDR')" style="color:#0891b2;border-color:rgba(8,145,178,.3)">📞 Sales / BDR Sourced Meetings</button>
-    <button class="pill" onclick="openPanel('GR')" style="color:#0ea5e9;border-color:rgba(14,165,233,.3)">🏛 GR / Lobbyist Sourced Meetings</button>
-    <button class="pill" onclick="openPanel('Comp')" style="color:var(--red);border-color:rgba(250,15,0,.3)">🧩 Competition</button>
-    <button class="pill" onclick="openPanel('Pursuit')" style="color:#0ea5e9;border-color:rgba(14,165,233,.35)">🔍 PURSUIT-Signals</button>
-    <button class="pill" onclick="showKeyModal()">🔑 API Key</button>
-    <button class="pill" onclick="publishSnapshot()" style="color:var(--green);border-color:rgba(34,197,94,.3)">↑ Publish Snapshot</button>
-    <button class="pill" onclick="resetData()" style="color:#ef4444;border-color:rgba(239,68,68,.3)">↺ Reset</button>
-    <div class="pill" style="cursor:default">Q2 2026</div>
-    <div class="live">Live Tracker</div>
+    <button class="pill" onclick="openPanel('Targets')" style="color:var(--blue);border-color:rgba(59,130,246,.3)">Target Customers</button>
+    <button class="pill" onclick="openPanel('AEM')" style="color:var(--amber);border-color:rgba(245,158,11,.3)">AEM Customers</button>
+    <button class="pill" onclick="openPanel('Meetings')" style="color:var(--purple);border-color:rgba(168,85,247,.3)">Partner Sourced / Sales Activity</button>
+    <button class="pill" onclick="openPanel('BDR')" style="color:#0891b2;border-color:rgba(8,145,178,.3)">Sales / BDR Sourced Meetings</button>
+    <button class="pill" onclick="openPanel('GR')" style="color:#0ea5e9;border-color:rgba(14,165,233,.3)">GR / Lobbyist Sourced Meetings</button>
+    <button class="pill" onclick="openPanel('Comp')" style="color:var(--red);border-color:rgba(250,15,0,.3)">Competition</button>
+    <button class="pill" onclick="openPanel('Pursuit')" style="color:#0ea5e9;border-color:rgba(14,165,233,.35)">PURSUIT-Signals</button>
+    <button class="pill" onclick="publishSnapshot()" style="color:var(--green);border-color:rgba(34,197,94,.3)">Publish Snapshot</button>
   </div>
 </header>
 
@@ -368,7 +316,7 @@ export default async function decorate(block) {
 <div class="footer">Adobe LLMO · SLG Strategic Initiative · Q2 2026 · Confidential — Internal Use Only · Data stored locally in each viewer's browser</div>
 
 <!-- PURSUIT-SIGNALS PANEL -->
-<div class="panel" id="pPursuit" style="width:960px">
+<div class="panel" id="pPursuit">
   <div class="panel-hdr">
     <div class="panel-title">🔍 PURSUIT-Signals Tracker</div>
     <div style="display:flex;align-items:center;gap:8px">
@@ -493,7 +441,6 @@ export default async function decorate(block) {
 </div>
 
 
-<button class="fab" onclick="toggleAI()">⚡ Update KPIs with AI</button>
 
 
 <!-- SLIDE PANEL OVERLAY -->
